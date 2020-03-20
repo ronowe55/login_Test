@@ -11,5 +11,5 @@ $ docker-compose build
 起動  
 $ docker-compose up -d
 
-終了&削除
+終了&削除  
 $ docker-compose down
