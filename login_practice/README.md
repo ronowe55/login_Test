@@ -1,14 +1,14 @@
-#　git
+# git
 
-クローン
+クローン  
 $ git clone https://github.com/ronowe55/login_Test.git
 
 # Docker
 
-ビルド
+ビルド  
 $ docker-compose build
 
-起動
+起動  
 $ docker-compose up -d
 
 終了&削除
