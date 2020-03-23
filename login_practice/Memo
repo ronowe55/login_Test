@@ -1,0 +1,152 @@
+#run.py
+
+from flask import Flask, render_template
+from app.py_api import apis
+from app.sample import sample
+from app.common.database import init_db
+import os
+from app.sample_call_merchant import sample2
+from flask_bcrypt import Bcrypt
+import logging.config
+
+# logger
+logging.config.fileConfig('logging.conf')
+
+def create_app():
+    app = Flask(__name__, instance_relative_config=True)
+    # app.config.from_object('finance.config.Config')
+    config_type = {
+        "development":  "config.DevelopmentConfig",
+        "testing": "config.TestingConfig",
+        "production": "config.ProductionConfig"
+    }
+
+    app = Flask(__name__, instance_relative_config=True)
+    app.config.from_object(config_type.get(os.getenv('FLASK_ENV', 'production')))
+    app.config.from_pyfile('config.cfg', silent=True)
+
+    init_db(app)
+    bcrypt = Bcrypt(app)
+
+    return app
+
+app = create_app()
+
+for api in apis:
+    app.register_blueprint(api, url_prefix='/api/v1')
+
+app.register_blueprint(sample)
+
+app.register_blueprint(sample2)
+
+@app.route('/')
+def getTop():
+    return render_template("top.html")
+
+@app.route('/header')
+def getHeader():
+    return render_template("header.html")
+
+@app.route('/main')
+def getMain():
+    return render_template("main.html")
+
+@app.route('/left')
+def getLeft():
+    return render_template("left.html")
+
+if __name__ == "__main__":
+    app.run()
+
+
+
+
+
+
+
+#requierments.txt
+Flask
+Flask-Migrate
+Flask-SQLAlchemy
+psycopg2
+certifi
+urllib3
+requests
+pyjwt
+Flask-Testing
+flask-bcrypt
+
+
+#DockerFile
+
+FROM python:3
+
+ARG project_dir=/projects/
+WORKDIR $project_dir
+
+COPY requirements.txt ./
+RUN pip install --upgrade pip
+RUN pip install pytest pytest-flake8 pytest-cov
+RUN pip install --no-cache-dir -r requirements.txt
+
+# swagger_client
+COPY Installs/python-client/ ./python-client
+RUN cd python-client && python ./setup.py install --user
+
+# yaml html化
+ SHELL ["/bin/bash", "-c"]
+ RUN curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.33.11/install.sh | bash
+ RUN source /root/.bashrc && nvm install stable
+ RUN source /root/.bashrc && npm install -g bootprint
+ RUN source /root/.bashrc && npm install -g bootprint-openapi
+ 
+ 
+ 
+ 
+ #Docker-compose.yaml
+ version: '3'
+networks:
+  web:
+    external:
+      name: traefik_web
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        - HTTPS_PROXY=${HTTPS_PROXY}
+    expose:
+      - 5000
+    volumes:
+      - ".:/projects"
+    tty: true
+    environment:
+      TZ: Asia/Tokyo
+      FLASK_APP: run
+      FLASK_ENV: development
+      DATABASE_URI: "postgresql://user01:user01@${USER}_rdb_1/development"
+      HTTPS_PROXY: ${HTTPS_PROXY}
+    command: flask run --host 0.0.0.0
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.$USER.entrypoints=front"
+      - "traefik.http.routers.$USER.rule=PathPrefix(`/$USER{regex:$$|/.*}`)"
+      - "traefik.http.routers.$USER.middlewares=$USER-stripprefix"
+      - "traefik.http.middlewares.$USER-stripprefix.stripprefix.prefixes=/$USER"
+    networks:
+      - web
+  rdb:
+    image: postgres:9
+    environment:
+      POSTGRES_USER: user01
+      POSTGRES_PASSWORD: user01
+      POSTGRES_DB: development
+    volumes:
+      - database:/var/lib/postgresql/data
+    networks:
+      - web
+
+volumes:
+  database:
+    driver: local
